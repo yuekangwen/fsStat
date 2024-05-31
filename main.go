@@ -1,0 +1,47 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"log"
+	"sync"
+)
+
+func main() {
+	dbPath := flag.String("db", "fs_stats.db", "Location of the database file")
+	bufferSize := flag.Int("buffer", 200, "Size of the buffer for writing to the database")
+	concurrency := flag.Int("concurrency", 16, "Maximum amount of concurrent workers")
+	flag.Parse()
+
+	var root string
+	if len(flag.Args()) > 1 {
+		log.Fatalln("Too many arguments")
+	} else if len(flag.Args()) == 0 {
+		root = "."
+	} else {
+		root = flag.Arg(0)
+	}
+
+	db, err := ConnectDB(*dbPath)
+	if err != nil {
+		log.Fatalln("Failed to connect to database:", err)
+	}
+	defer db.Close()
+
+	writerChan := make(chan *FSNodeStat, 50) // use buffered channel to prevent blocking
+	returnChan := make(chan *FSNodeStat)
+	idChan := make(chan uint32)
+	endChan := make(chan bool)
+
+	sem := CreateSemaphore(*concurrency)
+	wg := new(sync.WaitGroup)
+
+	go DBWriter(db, *bufferSize, writerChan, endChan, wg)
+	go IdGenerator(1, idChan)
+	go AsyncDFS(root, root, 0, idChan, writerChan, returnChan, sem)
+	totalSize := <-returnChan
+	endChan <- true
+	wg.Wait()
+	fmt.Println()
+	fmt.Println(totalSize.String())
+}
