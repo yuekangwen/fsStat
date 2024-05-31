@@ -11,6 +11,7 @@ func main() {
 	dbPath := flag.String("db", "fs_stats.db", "Location of the database file")
 	bufferSize := flag.Int("buffer", 200, "Size of the buffer for writing to the database")
 	concurrency := flag.Int("concurrency", 16, "Maximum amount of concurrent workers")
+	skipConfirmation := flag.Bool("y", false, "Whether to skip confirmation prompt")
 	flag.Parse()
 
 	var root string
