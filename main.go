@@ -22,6 +22,11 @@ func main() {
 		root = flag.Arg(0)
 	}
 
+	log.Println("Starting fsStat on", root)
+	log.Println("Database location:", *dbPath)
+	log.Println("Buffer size:", *bufferSize)
+	log.Println("Concurrency:", *concurrency)
+
 	db, err := ConnectDB(*dbPath)
 	if err != nil {
 		log.Fatalln("Failed to connect to database:", err)

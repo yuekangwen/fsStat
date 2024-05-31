@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -36,41 +38,62 @@ func DBWriter(db *sql.DB, bufferSize int, data chan *FSNodeStat, end chan bool, 
 	}
 }
 
+func RemoveDBIfAllowed(path string) {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Do you want to overwrite it? ([y]/n): ")
+	option, _ := reader.ReadString('\n')
+	switch option {
+	case "\n":
+		os.Remove(path)
+	case "y\n", "Y\n":
+		os.Remove(path)
+	case "n\n", "N\n":
+		log.Fatalln("Aborting...")
+	default:
+		fmt.Println(option)
+		log.Println("Invalid option")
+		RemoveDBIfAllowed(path)
+	}
+}
+
 func ConnectDB(path string) (*sql.DB, error) {
 	var db *sql.DB
 
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		log.Printf("Creating new database: %s\n", path)
-		db, err = sql.Open("sqlite3", path)
-		if err != nil {
-			log.Fatal(err)
-		}
-		_, err = db.Exec(`CREATE TABLE FileNodes (
-			Id INTEGER PRIMARY KEY,
-			ParentId INTEGER,
-			Path TEXT,
-			IsDir BOOLEAN,
-			Size INTEGER,
-			Count INTEGER,
-			SFileCount INTEGER,
-			SFileSize INTEGER,
-			MFileCount INTEGER,
-			MFileSize INTEGER,
-			LFileCount INTEGER,
-			LFileSize INTEGER,
-			XLFileCount INTEGER,
-			XLFileSize INTEGER,
-			XXLFileCount INTEGER,
-			XXLFileSize INTEGER
-		)`)
-		if err != nil {
-			log.Fatal(err)
-		}
+		log.Printf("Creating new database at %s\n", path)
 	} else if err != nil {
 		log.Fatalf("Error when checking file: %v\n", err)
 	} else {
-		log.Fatalf("%s is already present\n", path)
+		log.Printf("WARNING: Database %s is already present\n", path)
+		RemoveDBIfAllowed(path)
+	}
+
+	db, err = sql.Open("sqlite3", path)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = db.Exec(`CREATE TABLE FileNodes (
+		Id INTEGER PRIMARY KEY,
+		ParentId INTEGER,
+		Path TEXT,
+		IsDir BOOLEAN,
+		Size INTEGER,
+		Count INTEGER,
+		SFileCount INTEGER,
+		SFileSize INTEGER,
+		MFileCount INTEGER,
+		MFileSize INTEGER,
+		LFileCount INTEGER,
+		LFileSize INTEGER,
+		XLFileCount INTEGER,
+		XLFileSize INTEGER,
+		XXLFileCount INTEGER,
+		XXLFileSize INTEGER
+	)`)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	return db, nil
